@@ -10,13 +10,10 @@ Built with **Node.js** and **Express**. Includes a web UI for registering mappin
 
 - Register Elasticsearch index mappings and normalize them into a searchable schema
 - Ask natural language questions and get validated ES Query DSL
-- Web dashboard at `/` (Vue)
-- REST API for programmatic use
+- Web dashboard for mapping registration and chat-style querying
 - Built-in query validator with automatic retry (up to 3 attempts)
 
 ## Architecture flow
-
-![Architecture flow](docs/images/architecture-flow.png)
 
 ```mermaid
 flowchart LR
@@ -38,7 +35,7 @@ flowchart LR
 | 4 | **LLM response** | Claude returns ES Query DSL with an explanation and the fields used |
 | 5 | **Query validator** | Checks field names, query types, and mapping compatibility |
 | 6 | **Retry loop** | If validation fails, errors are fed back into the prompt and the model retries (max **3 attempts**) |
-| 7 | **Send to user** | Valid query + explanation + `usedFields` returned to the UI or API |
+| 7 | **Send to user** | Valid query, explanation, and used fields are shown in the UI |
 
 ### Example
 
@@ -101,102 +98,6 @@ Open [http://localhost:3000](http://localhost:3000).
 3. Select the index from the sidebar
 4. Type a question and click **Ask**
 5. Review the explanation and generated ES query
-
-## Environment variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | HTTP server port | `3000` |
-| `HOST` | Bind address | `0.0.0.0` |
-| `ANTHROPIC_API_KEY` | Anthropic API key | — |
-| `ANTHROPIC_MODEL` | Claude model | `claude-opus-4-8` |
-| `ANTHROPIC_BASE_URL` | Optional API base URL | — |
-
-## Main APIs
-
-### 1. Initialize index (register mapping)
-
-Registers an ES index mapping so the app knows which fields can be queried.
-
-**`PUT /mappings/:index`**
-
-```bash
-curl -X PUT http://localhost:3000/mappings/contracts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "properties": {
-      "scac_name": { "type": "keyword" },
-      "rc_version": { "type": "keyword" },
-      "version": { "type": "keyword" }
-    }
-  }'
-```
-
-**Response:**
-
-```json
-{
-  "index": "contracts",
-  "message": "Mapping registered",
-  "fieldCount": 109
-}
-```
-
-### 2. Ask a question (generate query)
-
-Converts a natural language question into validated Elasticsearch Query DSL.
-
-**`POST /ask`**
-
-```bash
-curl -X POST http://localhost:3000/ask \
-  -H "Content-Type: application/json" \
-  -d '{
-    "index": "contracts",
-    "question": "filter APXL or DHTW scac information group by scac and show latest rc_version, version records"
-  }'
-```
-
-**Response:**
-
-```json
-{
-  "query": { "...": "ES Query DSL" },
-  "explanation": "Filters contracts where scac_name is APXL or DHTW...",
-  "usedFields": ["scac_name.keyword", "rc_version.keyword", "version.keyword"],
-  "attempts": 1
-}
-```
-
-## All endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/` | Web UI |
-| `GET` | `/health` | Health check |
-| `GET` | `/mappings` | List registered indices |
-| `PUT` | `/mappings/:index` | Register index mapping |
-| `GET` | `/mappings/:index/schema` | Normalized field schema |
-| `DELETE` | `/mappings/:index` | Remove a mapping |
-| `POST` | `/ask` | Natural language → ES query |
-
-## Project structure
-
-```text
-src/
-  server.js              # Entry point
-  plugin.js              # Core text-to-ES logic
-  config.js              # Environment config
-  http/                  # Express routes & handlers
-  mapping/               # ES mapping normalization
-  prompt/                # System + user prompt building
-  generator/             # Anthropic query generation
-  validate/              # DSL + mapping validation
-public/
-  index.html             # Vue web UI
-docs/
-  images/                # README screenshots & diagrams
-```
 
 ## Scripts
 
