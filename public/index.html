@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEXT-DSL Query · NL → Elasticsearch</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --panel: #181b24;
+      --panel-2: #1f2330;
+      --border: #2a2f3d;
+      --text: #e6e9ef;
+      --muted: #8b93a7;
+      --accent: #5b8cff;
+      --accent-2: #3a6df0;
+      --green: #3ecf8e;
+      --red: #ff6b6b;
+      --code-bg: #11141c;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+    }
+    #app { display: flex; height: 100vh; overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 380px;
+      min-width: 280px;
+      max-width: 640px;
+      flex-shrink: 0;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: auto;
+      resize: horizontal;
+    }
+    .brand {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand h1 { font-size: 16px; margin: 0; letter-spacing: .3px; }
+    .brand p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .section { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .section h2 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+      color: var(--muted); margin: 0 0 10px;
+    }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+    input[type="text"], textarea, select {
+      width: 100%; background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 9px 11px; font-size: 13px;
+      font-family: inherit; outline: none; margin-bottom: 12px;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 500px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+    button {
+      background: var(--accent-2); color: #fff; border: none; border-radius: 8px;
+      padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    button:hover { background: var(--accent); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button.ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 10px; font-weight: 500; }
+    button.ghost:hover { color: var(--text); border-color: var(--accent); }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .index-list { display: flex; flex-direction: column; gap: 6px; }
+    .index-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 11px; cursor: pointer;
+    }
+    .index-item.active { border-color: var(--accent); background: #20283f; }
+    .index-item .name { font-weight: 600; }
+    .index-item .del { color: var(--muted); font-size: 16px; line-height: 1; padding: 0 4px; }
+    .index-item .del:hover { color: var(--red); }
+    .hint { color: var(--muted); font-size: 12px; margin: 0; }
+    .toast { font-size: 12px; margin-top: 8px; }
+    .toast.ok { color: var(--green); }
+    .toast.err { color: var(--red); }
+
+    /* Chat */
+    .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .chat-header {
+      padding: 14px 22px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 14px;
+    }
+    .chat-header .active-index { font-weight: 600; }
+    .chat-header .active-index span { color: var(--muted); font-weight: 400; }
+    .mode-toggle { display: flex; gap: 4px; margin-left: auto; background: var(--panel-2); border-radius: 8px; padding: 3px; }
+    .mode-toggle button {
+      background: transparent; color: var(--muted); padding: 5px 12px; font-size: 12px; border-radius: 6px;
+    }
+    .mode-toggle button.on { background: var(--accent-2); color: #fff; }
+    .messages { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 18px; }
+    .empty { color: var(--muted); text-align: center; margin: auto; max-width: 360px; }
+    .msg { max-width: 80%; }
+    .msg.user { align-self: flex-end; }
+    .msg.user .bubble { background: var(--accent-2); color: #fff; border-radius: 12px 12px 2px 12px; }
+    .msg.bot { align-self: flex-start; width: 80%; }
+    .bubble { padding: 11px 14px; border-radius: 12px 12px 12px 2px; background: var(--panel); border: 1px solid var(--border); }
+    .bubble.error { border-color: var(--red); color: var(--red); }
+    .explanation { margin: 0 0 10px; line-height: 1.5; }
+    .meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+    .meta b { color: var(--text); font-weight: 600; }
+    details { margin-top: 8px; }
+    summary { cursor: pointer; color: var(--accent); font-size: 12px; user-select: none; }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px; overflow-x: auto; font-size: 12px; margin: 8px 0 0;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace; line-height: 1.45;
+    }
+    .hits-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; display: block; overflow-x: auto; }
+    .hits-table th, .hits-table td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; white-space: nowrap; }
+    .hits-table th { background: var(--panel-2); color: var(--muted); position: sticky; top: 0; }
+    .typing { color: var(--muted); font-style: italic; }
+    .composer { border-top: 1px solid var(--border); padding: 14px 22px; display: flex; gap: 10px; }
+    .composer input { margin: 0; }
+    .composer button { white-space: nowrap; }
+    .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: s 0.7s linear infinite; }
+    @keyframes s { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>TEXT-DSL Query</h1>
+        <p>Natural language → Elasticsearch</p>
+      </div>
+
+      <div class="section">
+        <h2>Register a mapping</h2>
+        <label>Index name</label>
+        <input type="text" v-model.trim="form.index" placeholder="e.g. orders" @keydown.enter="registerMapping" />
+        <label>Mapping JSON</label>
+        <textarea v-model="form.mapping" placeholder='{ "properties": { "status": { "type": "keyword" }, ... } }'></textarea>
+        <div class="row">
+          <button :disabled="registering" @click="registerMapping">
+            <span v-if="registering" class="spin"></span>
+            <span v-else>Register</span>
+          </button>
+          <button class="ghost" @click="loadSample">Load sample</button>
+        </div>
+        <p v-if="mappingMsg" class="toast" :class="mappingErr ? 'err' : 'ok'">{{ mappingMsg }}</p>
+      </div>
+
+      <div class="section" style="flex:1;">
+        <h2>Indices <button class="ghost" style="float:right;margin-top:-3px;" @click="refreshIndices">↻</button></h2>
+        <div v-if="indices.length" class="index-list">
+          <div v-for="ix in indices" :key="ix" class="index-item" :class="{ active: ix === activeIndex }" @click="selectIndex(ix)">
+            <span class="name">{{ ix }}</span>
+            <span class="del" @click.stop="deleteIndex(ix)" title="Delete">×</span>
+          </div>
+        </div>
+        <p v-else class="hint">No indices registered yet. Register a mapping above to begin.</p>
+      </div>
+    </aside>
+
+    <!-- Chat -->
+    <main class="chat">
+      <div class="chat-header">
+        <div class="active-index" v-if="activeIndex">Asking <span>·</span> {{ activeIndex }}</div>
+        <div class="active-index" v-else style="color:var(--muted)">Select an index to start</div>
+      </div>
+
+      <div class="messages" ref="messagesEl">
+        <div v-if="!messages.length" class="empty">
+          <p>👋 Register an index mapping, pick it on the left, then ask questions in plain English.</p>
+          <p class="hint">e.g. "Show cancelled orders from the last 7 days" or "Count orders grouped by status"</p>
+        </div>
+
+        <div v-for="(m, i) in messages" :key="i" class="msg" :class="m.role">
+          <!-- user -->
+          <div v-if="m.role === 'user'" class="bubble">{{ m.text }}</div>
+
+          <!-- bot -->
+          <div v-else class="bubble" :class="{ error: m.error }">
+            <template v-if="m.error">{{ m.text }}</template>
+            <template v-else>
+              <p class="explanation" v-if="m.explanation">{{ m.explanation }}</p>
+              <div class="meta">
+                <span><b>{{ m.attempts }}</b> attempt(s)</span>
+                <span v-if="m.usedFields?.length"><b>fields:</b> {{ m.usedFields.join(', ') }}</span>
+              </div>
+
+              <pre>{{ pretty(m.query) }}</pre>
+            </template>
+          </div>
+        </div>
+
+        <div v-if="asking" class="msg bot">
+          <div class="bubble typing"><span class="spin" style="border-top-color:var(--accent)"></span> Generating query…</div>
+        </div>
+      </div>
+
+      <div class="composer">
+        <input type="text" v-model.trim="question" :disabled="!activeIndex || asking"
+               :placeholder="activeIndex ? 'Ask a question…' : 'Register and select an index first'"
+               @keydown.enter="ask" />
+        <button :disabled="!activeIndex || asking || !question" @click="ask">Ask</button>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive, nextTick } = Vue;
+
+    const SAMPLE = {
+      index: "orders",
+      mapping: JSON.stringify({
+        properties: {
+          order_id: { type: "keyword" },
+          status: { type: "keyword" },
+          customer: { properties: { name: { type: "text", fields: { keyword: { type: "keyword" } } } } },
+          total: { type: "double" },
+          created_at: { type: "date" }
+        }
+      }, null, 2)
+    };
+
+    createApp({
+      setup() {
+        const form = reactive({ index: "", mapping: "" });
+        const indices = ref([]);
+        const activeIndex = ref(null);
+        const question = ref("");
+        const messages = ref([]);
+        const asking = ref(false);
+        const registering = ref(false);
+        const mappingMsg = ref("");
+        const mappingErr = ref(false);
+        const messagesEl = ref(null);
+
+        async function api(method, path, body) {
+          const res = await fetch(path, {
+            method,
+            headers: body ? { "Content-Type": "application/json" } : undefined,
+            body: body ? JSON.stringify(body) : undefined,
+          });
+          const text = await res.text();
+          const data = text ? JSON.parse(text) : {};
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          return data;
+        }
+
+        async function refreshIndices() {
+          try {
+            const data = await api("GET", "/mappings");
+            indices.value = data.indices || [];
+            if (!activeIndex.value && indices.value.length) activeIndex.value = indices.value[0];
+            if (activeIndex.value && !indices.value.includes(activeIndex.value)) activeIndex.value = indices.value[0] || null;
+          } catch (e) { /* ignore */ }
+        }
+
+        function loadSample() {
+          form.index = SAMPLE.index;
+          form.mapping = SAMPLE.mapping;
+        }
+
+        async function registerMapping() {
+          mappingMsg.value = "";
+          if (!form.index) { mappingErr.value = true; mappingMsg.value = "Index name is required."; return; }
+          let parsed;
+          try { parsed = JSON.parse(form.mapping); }
+          catch { mappingErr.value = true; mappingMsg.value = "Mapping is not valid JSON."; return; }
+          registering.value = true;
+          try {
+            const data = await api("PUT", `/mappings/${encodeURIComponent(form.index)}`, parsed);
+            mappingErr.value = false;
+            mappingMsg.value = `Registered "${data.index}" (${data.fieldCount} fields).`;
+            await refreshIndices();
+            activeIndex.value = form.index;
+          } catch (e) {
+            mappingErr.value = true; mappingMsg.value = e.message;
+          } finally { registering.value = false; }
+        }
+
+        async function deleteIndex(ix) {
+          if (!confirm(`Delete mapping "${ix}"?`)) return;
+          try { await api("DELETE", `/mappings/${encodeURIComponent(ix)}`); await refreshIndices(); }
+          catch (e) { alert(e.message); }
+        }
+
+        function selectIndex(ix) { activeIndex.value = ix; }
+
+        async function scrollDown() {
+          await nextTick();
+          if (messagesEl.value) messagesEl.value.scrollTop = messagesEl.value.scrollHeight;
+        }
+
+        async function ask() {
+          if (!activeIndex.value || !question.value || asking.value) return;
+          const q = question.value;
+          messages.value.push({ role: "user", text: q });
+          question.value = "";
+          asking.value = true;
+          await scrollDown();
+          try {
+            const data = await api("POST", "/ask", {
+              index: activeIndex.value, question: q,
+            });
+            messages.value.push({
+              role: "bot", query: data.query, explanation: data.explanation,
+              usedFields: data.usedFields, attempts: data.attempts,
+            });
+          } catch (e) {
+            messages.value.push({ role: "bot", error: true, text: e.message });
+          } finally {
+            asking.value = false;
+            await scrollDown();
+          }
+        }
+
+        function pretty(obj) { return JSON.stringify(obj, null, 2); }
+
+        refreshIndices();
+
+        return {
+          form, indices, activeIndex, question, messages, asking, registering,
+          mappingMsg, mappingErr, messagesEl,
+          refreshIndices, loadSample, registerMapping, deleteIndex, selectIndex, ask,
+          pretty,
+        };
+      }
+    }).mount("#app");
+  </script>
+</body>
+</html>
