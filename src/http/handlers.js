@@ -51,6 +51,21 @@ export async function putMappingHandler(req, res) {
   });
 }
 
+export async function putSettingsHandler(req, res) {
+  const settings = ensureObject(req.body, "settings");
+  if (!plugin.hasMapping(req.params.index)) {
+    throw new HttpError(404, `Register a mapping for "${req.params.index}" before adding settings`);
+  }
+  plugin.setSettings(req.params.index, settings);
+  const { analysis } = plugin.getSchema(req.params.index);
+  res.json({
+    index: req.params.index,
+    message: "Settings registered",
+    analyzerCount: analysis?.analyzers.length ?? 0,
+    normalizerCount: analysis?.normalizers.length ?? 0,
+  });
+}
+
 export async function deleteMappingHandler(req, res) {
   const removed = plugin.deleteMapping(req.params.index);
   if (!removed) {

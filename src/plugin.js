@@ -26,6 +26,13 @@ export class TextToESPlugin {
 
   setMapping(index, mapping) {
     const existing = this.raw.get(index);
+    // Only one index is supported at a time: registering a different index
+    // replaces whatever was registered before.
+    for (const registered of [...this.raw.keys()]) {
+      if (registered !== index) {
+        this.deleteMapping(registered);
+      }
+    }
     this.raw.set(index, { mapping, settings: existing?.settings });
     this.rebuild(index);
   }

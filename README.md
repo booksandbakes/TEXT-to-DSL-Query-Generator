@@ -9,8 +9,9 @@ Built with **Node.js** and **Express**. Includes a web UI for registering mappin
 ## Features
 
 - Register Elasticsearch index mappings and normalize them into a searchable schema
+- Optionally register index **settings** (analyzers / normalizers) so generated queries respect field casing and tokenization
 - Ask natural language questions and get validated ES Query DSL
-- Web dashboard for mapping registration and chat-style querying
+- Web dashboard for mapping + settings registration and chat-style querying
 - Built-in query validator with automatic retry (up to 3 attempts)
 
 ## Architecture flow
@@ -29,9 +30,9 @@ flowchart LR
 
 | Step | Component | What happens |
 |------|-----------|--------------|
-| 1 | **User request** | User registers an index mapping and asks a question in plain English |
-| 2 | **System prompt** | Defines who the model is, what it can do, and the rules (keyword vs text, nested fields, no scripts, etc.) |
-| 3 | **User prompt** | Combines normalized **fields from mapping**, **few-shot examples**, and the **user question** |
+| 1 | **User request** | User registers an index mapping (and optionally settings) and asks a question in plain English |
+| 2 | **System prompt** | Defines who the model is, what it can do, and the rules (keyword vs text, nested fields, analyzers/normalizers, no scripts, etc.) |
+| 3 | **User prompt** | Combines normalized **fields from mapping**, **analysis settings**, **few-shot examples**, and the **user question** |
 | 4 | **LLM response** | Claude returns ES Query DSL with an explanation and the fields used |
 | 5 | **Query validator** | Checks field names, query types, and mapping compatibility |
 | 6 | **Retry loop** | If validation fails, errors are fed back into the prompt and the model retries (max **3 attempts**) |
