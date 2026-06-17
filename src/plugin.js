@@ -9,6 +9,12 @@ export class TextToESPlugin {
     this.maxRetries = options.maxRetries ?? 2;
     this.defaultSize = options.defaultSize ?? 100;
     this.schemas = new Map();
+    this.raw = new Map();
+  }
+
+  rebuild(index) {
+    const { mapping, settings } = this.raw.get(index);
+    this.schemas.set(index, normalizeMapping(index, mapping, settings));
   }
 
   getGenerator() {
@@ -19,10 +25,26 @@ export class TextToESPlugin {
   }
 
   setMapping(index, mapping) {
-    this.schemas.set(index, normalizeMapping(index, mapping));
+    const existing = this.raw.get(index);
+    this.raw.set(index, { mapping, settings: existing?.settings });
+    this.rebuild(index);
+  }
+
+  setSettings(index, settings) {
+    const existing = this.raw.get(index);
+    if (!existing) {
+      throw new Error(`No mapping registered for index "${index}". Register a mapping first.`);
+    }
+    this.raw.set(index, { ...existing, settings });
+    this.rebuild(index);
+  }
+
+  hasMapping(index) {
+    return this.raw.has(index);
   }
 
   deleteMapping(index) {
+    this.raw.delete(index);
     return this.schemas.delete(index);
   }
 
@@ -80,5 +102,6 @@ export function serializeSchema(schema) {
     index: schema.index,
     fields: schema.fields,
     fieldMap: Object.fromEntries(schema.fieldMap),
+    analysis: schema.analysis,
   };
 }

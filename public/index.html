@@ -152,15 +152,29 @@
         <p v-if="mappingMsg" class="toast" :class="mappingErr ? 'err' : 'ok'">{{ mappingMsg }}</p>
       </div>
 
+      <div class="section">
+        <h2>Index settings <span style="text-transform:none;letter-spacing:0;">(optional)</span></h2>
+        <p class="hint" style="margin-bottom:10px;">Paste the index <code>settings</code> (analyzers / normalizers) so generated queries respect casing &amp; tokenization. Register a mapping first.</p>
+        <label>Settings JSON</label>
+        <textarea v-model="form.settings" style="min-height:200px;" placeholder='{ "analysis": { "normalizer": { "lower": { "type": "custom", "filter": ["lowercase"] } } } }'></textarea>
+        <div class="row">
+          <button :disabled="registeringSettings || !form.index" @click="registerSettings">
+            <span v-if="registeringSettings" class="spin"></span>
+            <span v-else>Save settings</span>
+          </button>
+        </div>
+        <p v-if="settingsMsg" class="toast" :class="settingsErr ? 'err' : 'ok'">{{ settingsMsg }}</p>
+      </div>
+
       <div class="section" style="flex:1;">
-        <h2>Indices <button class="ghost" style="float:right;margin-top:-3px;" @click="refreshIndices">↻</button></h2>
+        <h2>Active index <button class="ghost" style="float:right;margin-top:-3px;" @click="refreshIndices">↻</button></h2>
         <div v-if="indices.length" class="index-list">
           <div v-for="ix in indices" :key="ix" class="index-item" :class="{ active: ix === activeIndex }" @click="selectIndex(ix)">
             <span class="name">{{ ix }}</span>
             <span class="del" @click.stop="deleteIndex(ix)" title="Delete">×</span>
           </div>
         </div>
-        <p v-else class="hint">No indices registered yet. Register a mapping above to begin.</p>
+        <p v-else class="hint">No index registered yet. Register a mapping above to begin. Only one index is active at a time — registering another replaces it.</p>
       </div>
     </aside>
 
@@ -218,17 +232,24 @@
       mapping: JSON.stringify({
         properties: {
           order_id: { type: "keyword" },
-          status: { type: "keyword" },
+          status: { type: "keyword", normalizer: "lower" },
           customer: { properties: { name: { type: "text", fields: { keyword: { type: "keyword" } } } } },
           total: { type: "double" },
           created_at: { type: "date" }
+        }
+      }, null, 2),
+      settings: JSON.stringify({
+        analysis: {
+          normalizer: {
+            lower: { type: "custom", filter: ["lowercase"] }
+          }
         }
       }, null, 2)
     };
 
     createApp({
       setup() {
-        const form = reactive({ index: "", mapping: "" });
+        const form = reactive({ index: "", mapping: "", settings: "" });
         const indices = ref([]);
         const activeIndex = ref(null);
         const question = ref("");
@@ -237,6 +258,9 @@
         const registering = ref(false);
         const mappingMsg = ref("");
         const mappingErr = ref(false);
+        const registeringSettings = ref(false);
+        const settingsMsg = ref("");
+        const settingsErr = ref(false);
         const messagesEl = ref(null);
 
         async function api(method, path, body) {
@@ -263,6 +287,7 @@
         function loadSample() {
           form.index = SAMPLE.index;
           form.mapping = SAMPLE.mapping;
+          form.settings = SAMPLE.settings;
         }
 
         async function registerMapping() {
@@ -281,6 +306,22 @@
           } catch (e) {
             mappingErr.value = true; mappingMsg.value = e.message;
           } finally { registering.value = false; }
+        }
+
+        async function registerSettings() {
+          settingsMsg.value = "";
+          if (!form.index) { settingsErr.value = true; settingsMsg.value = "Register a mapping first."; return; }
+          let parsed;
+          try { parsed = JSON.parse(form.settings); }
+          catch { settingsErr.value = true; settingsMsg.value = "Settings is not valid JSON."; return; }
+          registeringSettings.value = true;
+          try {
+            const data = await api("PUT", `/mappings/${encodeURIComponent(form.index)}/settings`, parsed);
+            settingsErr.value = false;
+            settingsMsg.value = `Saved settings for "${data.index}" (${data.analyzerCount} analyzer(s), ${data.normalizerCount} normalizer(s)).`;
+          } catch (e) {
+            settingsErr.value = true; settingsMsg.value = e.message;
+          } finally { registeringSettings.value = false; }
         }
 
         async function deleteIndex(ix) {
@@ -325,8 +366,8 @@
 
         return {
           form, indices, activeIndex, question, messages, asking, registering,
-          mappingMsg, mappingErr, messagesEl,
-          refreshIndices, loadSample, registerMapping, deleteIndex, selectIndex, ask,
+          mappingMsg, mappingErr, registeringSettings, settingsMsg, settingsErr, messagesEl,
+          refreshIndices, loadSample, registerMapping, registerSettings, deleteIndex, selectIndex, ask,
           pretty,
         };
       }

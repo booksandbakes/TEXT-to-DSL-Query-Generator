@@ -9,6 +9,7 @@ import {
   healthHandler,
   listMappingsHandler,
   putMappingHandler,
+  putSettingsHandler,
 } from "./handlers.js";
 
 const publicDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
@@ -27,6 +28,7 @@ export function createServer() {
   app.get("/mappings", listMappingsHandler);
   app.get("/mappings/:index/schema", getSchemaHandler);
   app.put("/mappings/:index", putMappingHandler);
+  app.put("/mappings/:index/settings", putSettingsHandler);
   app.delete("/mappings/:index", deleteMappingHandler);
   app.post("/ask", askHandler);
 

@@ -52,6 +52,8 @@ export function buildSystemPrompt() {
     "- Use range queries for numeric and date fields.",
     "- Wrap clauses on nested fields inside a nested query with the correct path.",
     "- Use bool.filter for exact constraints and bool.must for full-text relevance.",
+    "- For full-text/multi_match/match queries use the analyzed field name (e.g. source), never its .keyword subfield; reserve .keyword for term/terms, sorting, and aggregations.",
+    "- Respect each field's analyzer/normalizer shown in the schema: when a keyword field has a normalizer with a lowercase filter, lowercase the value in term/terms queries so it matches; match query text to the field's analyzer behaviour.",
     "- Never generate update/delete/index operations or scripts.",
     "- Default size to the requested value unless the user asks for counts/aggregations (then size can be 0).",
     "- For pagination use from + size (offset paging); for deep pagination use search_after together with a sort.",
