@@ -4,7 +4,7 @@ Convert natural language questions into **Elasticsearch Query DSL** using an ind
 
 Built with **Node.js** and **Express**. Includes a web UI for registering mappings and asking questions in plain English.
 
-![TEXT-DSL Query UI](docs/images/ui-screenshot.png)
+![TEXT-DSL Query UI](docs/images/image.png)
 
 ## Features
 
@@ -96,9 +96,10 @@ Open [http://localhost:3000](http://localhost:3000).
 
 1. Enter an **index name** (e.g. `contracts`)
 2. Paste the **mapping JSON** and click **Register**
-3. Select the index from the sidebar
-4. Type a question and click **Ask**
-5. Review the explanation and generated ES query
+3. *(Optional)* Paste the **index settings JSON** (analyzers / normalizers) so generated queries respect field casing and tokenization. This step can be skipped — mappings alone are enough to start.
+4. Select the index from the sidebar
+5. Type a question and click **Ask**
+6. Review the explanation and generated ES query
 
 ## Scripts
 
