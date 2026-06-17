@@ -154,7 +154,6 @@
 
       <div class="section">
         <h2>Index settings <span style="text-transform:none;letter-spacing:0;">(optional)</span></h2>
-        <p class="hint" style="margin-bottom:10px;">Paste the index <code>settings</code> (analyzers / normalizers) so generated queries respect casing &amp; tokenization. Register a mapping first.</p>
         <label>Settings JSON</label>
         <textarea v-model="form.settings" style="min-height:200px;" placeholder='{ "analysis": { "normalizer": { "lower": { "type": "custom", "filter": ["lowercase"] } } } }'></textarea>
         <div class="row">
